@@ -30,6 +30,27 @@ func checkError(err error, msg string) {
 	}
 }
 
+func readConf(url string) (config kdpassdConf, err error) {
+	confFile, err := os.Open(url)
+	if err != nil {
+		return
+	}
+	defer confFile.Close()
+	decorder := json.NewDecoder(confFile)
+	err = decorder.Decode(&config)
+	return
+}
+
+func createTLSListener(config kdpassdConf) (listener net.Listener, err error) {
+	cert, err := tls.LoadX509KeyPair(config.CrtUrl, config.KeyUrl)
+	if err != nil {
+		return
+	}
+	tlsConf := tls.Config{Certificates: []tls.Certificate{cert}}
+	listener, err = tls.Listen("tcp", ":"+config.Port, &tlsConf)
+	return
+}
+
 func handleClient(conn net.Conn) {
 	msg := make([]byte, 1024)
 	msgLen, err := conn.Read(msg)
@@ -38,19 +59,12 @@ func handleClient(conn net.Conn) {
 }
 
 func main() {
-	confFile, err := os.Open("kdpassd.conf")
-	checkError(err, "failed reading config file.")
-	defer confFile.Close()
-	decorder := json.NewDecoder(confFile)
-	var config kdpassdConf
-	err = decorder.Decode(&config)
-	checkError(err, "failed decoding config file.")
 
-	cert, err := tls.LoadX509KeyPair(config.CrtUrl, config.KeyUrl)
-	checkError(err, "could not load certification files.")
-	tlsConf := tls.Config{Certificates: []tls.Certificate{cert}}
-	listener, err := tls.Listen("tcp", ":"+config.Port, &tlsConf)
-	checkError(err, "could not listen.")
+	config, err := readConf("kdpassd.conf")
+	checkError(err, "failed to read config file.")
+
+	listener, err := createTLSListener(config)
+	checkError(err, "could not create TLSListener.")
 
 	for {
 		conn, err := listener.Accept()
