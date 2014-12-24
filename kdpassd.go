@@ -4,20 +4,28 @@ import (
 	"encoding/json"
 	"fmt"
 	//"github.com/codegangsta/cli"
+	"crypto/sha256"
 	"crypto/tls"
+	"encoding/base64"
 	"net"
 	"os"
+	"strconv"
 )
 
 type kdpassdConf struct {
-	Port   string
-	CrtUrl string
-	KeyUrl string
+	Port     string
+	CrtUrl   string
+	KeyUrl   string
+	AuthPass string
 }
 
 func getPassword(label string) (string, error) {
 	return "hoge", nil
 }
+
+const (
+	SHOW = iota
+)
 
 func getLabelList() ([]string, error) {
 	return []string{"huga", "hage"}, nil
@@ -51,11 +59,29 @@ func createTLSListener(config kdpassdConf) (listener net.Listener, err error) {
 	return
 }
 
-func handleClient(conn net.Conn) {
-	msg := make([]byte, 1024)
-	msgLen, err := conn.Read(msg)
-	checkError(err, "failed to read message")
-	fmt.Println(string(msg[:msgLen]))
+func handleClient(conn net.Conn, config kdpassdConf) {
+	act := make([]byte, 1)
+	actLen, err := conn.Read(act)
+	checkError(err, "failed to read action.")
+	actNum, _ := strconv.Atoi(string(act[:actLen]))
+	switch actNum {
+	case SHOW:
+		passwd := make([]byte, 256)
+		passLen, err := conn.Read(passwd)
+		checkError(err, "failed to read password.")
+		hash := sha256.New()
+		hash.Write(passwd[:passLen])
+		hashPass := base64.URLEncoding.EncodeToString(hash.Sum(nil))
+		if hashPass != config.AuthPass {
+			conn.Write([]byte("failed"))
+			return
+		}
+		conn.Write([]byte("success"))
+		label := make([]byte, 1024)
+		labelLen, err := conn.Read(label)
+		checkError(err, "failed to read label.")
+		fmt.Println(string(label[:labelLen]))
+	}
 }
 
 func main() {
@@ -72,6 +98,6 @@ func main() {
 		defer conn.Close()
 
 		fmt.Println("accept!")
-		go handleClient(conn)
+		go handleClient(conn, config)
 	}
 }
