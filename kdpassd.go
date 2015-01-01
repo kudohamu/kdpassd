@@ -35,11 +35,8 @@ func getPassword(label string) (string, error) {
 const (
 	SHOW = iota
 	ADD
+	LIST
 )
-
-func getLabelList() ([]string, error) {
-	return []string{"huga", "hage"}, nil
-}
 
 func checkError(err error, msg string) {
 	if err != nil {
@@ -97,6 +94,8 @@ func handleClient(conn net.Conn) {
 		send(conn)
 	case ADD:
 		regist(conn)
+	case LIST:
+		list(conn)
 	}
 }
 

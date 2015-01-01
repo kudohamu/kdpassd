@@ -98,3 +98,27 @@ func getPasswdColumn(label string) (passInfo PassInfo, err error) {
 	err = db.QueryRow("SELECT * FROM passwd_info WHERE label = $1;", label).Scan(&passInfo.label, &passInfo.password, &passInfo.remark)
 	return
 }
+
+func getLabels() (labels []string, err error) {
+	db, err := connectDB()
+	if err != nil {
+		return
+	}
+	defer db.Close()
+
+	rows, err := db.Query("SELECT label FROM passwd_info;")
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var label string
+		if err = rows.Scan(&label); err != nil {
+			return
+		}
+		labels = append(labels, label)
+	}
+
+	return
+}
