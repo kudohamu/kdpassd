@@ -1,17 +1,12 @@
 package main
 
 import (
-	"crypto/aes"
-	"crypto/rand"
-	"crypto/sha256"
 	"crypto/sha512"
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	//"github.com/codegangsta/cli"
-	"crypto/cipher"
-	"io"
 	"net"
 	"os"
 	"strconv"
@@ -44,39 +39,6 @@ const (
 
 func getLabelList() ([]string, error) {
 	return []string{"huga", "hage"}, nil
-}
-
-func encrypter(plainText, key []byte) (cipherText []byte) {
-	hash := sha256.New()
-	hash.Write(key)
-	cipherBlock, _ := aes.NewCipher(hash.Sum(nil))
-
-	cipherText = make([]byte, len(plainText)+aes.BlockSize)
-
-	iv := cipherText[:aes.BlockSize]
-	_, err := io.ReadFull(rand.Reader, iv)
-
-	if err != nil {
-		return
-	}
-
-	stream := cipher.NewCTR(cipherBlock, iv)
-	stream.XORKeyStream(cipherText[aes.BlockSize:], plainText)
-
-	return
-}
-
-func decrypter(cipherText, key []byte) (plainText []byte) {
-	hash := sha256.New()
-	hash.Write(key)
-	cipherBlock, _ := aes.NewCipher(hash.Sum(nil))
-
-	plainText = make([]byte, len(plainText)+aes.BlockSize)
-
-	stream := cipher.NewCTR(cipherBlock, cipherText[:aes.BlockSize])
-	stream.XORKeyStream(plainText, cipherText[aes.BlockSize:])
-
-	return
 }
 
 func checkError(err error, msg string) {

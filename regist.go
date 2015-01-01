@@ -17,12 +17,14 @@ func regist(conn net.Conn) {
 	passwd := make([]byte, 255)
 	passLen, err := conn.Read(passwd)
 	checkError(err, "failed to read password.")
-	column.password = encrypter(passwd[:passLen], authPass)
+	column.password = passwd[:passLen]
 
 	remark := make([]byte, 1023)
 	remarkLen, err := conn.Read(remark)
 	checkError(err, "failed to read password.")
-	column.remark = encrypter(remark[:remarkLen], authPass)
+	column.remark = remark[:remarkLen]
+
+	column.encrypt(authPass)
 
 	err = insertPasswdColumn(column)
 	checkError(err, "failed to insert password into database.")

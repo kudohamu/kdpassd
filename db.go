@@ -1,14 +1,75 @@
 package main
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
 	_ "github.com/lib/pq"
+	"io"
 )
 
 type PassInfo struct {
 	label    string
 	password []byte
 	remark   []byte
+}
+
+func (passInfo *PassInfo) encrypt(key []byte) {
+	hash := sha256.New()
+	hash.Write(key)
+	cipherBlock, _ := aes.NewCipher(hash.Sum(nil))
+
+	cipherPass := make([]byte, len(passInfo.password)+aes.BlockSize)
+
+	iv := cipherPass[:aes.BlockSize]
+	_, err := io.ReadFull(rand.Reader, iv)
+
+	if err != nil {
+		return
+	}
+
+	stream := cipher.NewCTR(cipherBlock, iv)
+	stream.XORKeyStream(cipherPass[aes.BlockSize:], passInfo.password)
+
+	cipherRemark := make([]byte, len(passInfo.remark)+aes.BlockSize)
+
+	iv = cipherRemark[:aes.BlockSize]
+	_, err = io.ReadFull(rand.Reader, iv)
+
+	if err != nil {
+		return
+	}
+
+	stream = cipher.NewCTR(cipherBlock, iv)
+	stream.XORKeyStream(cipherRemark[aes.BlockSize:], passInfo.remark)
+
+	passInfo.password = cipherPass
+	passInfo.remark = cipherRemark
+
+	return
+}
+
+func (passInfo *PassInfo) decrypt(key []byte) {
+	hash := sha256.New()
+	hash.Write(key)
+	cipherBlock, _ := aes.NewCipher(hash.Sum(nil))
+
+	plainPass := make([]byte, len(passInfo.password)-aes.BlockSize)
+
+	stream := cipher.NewCTR(cipherBlock, passInfo.password[:aes.BlockSize])
+	stream.XORKeyStream(plainPass, passInfo.password[aes.BlockSize:])
+
+	plainRemark := make([]byte, len(passInfo.remark)-aes.BlockSize)
+
+	stream = cipher.NewCTR(cipherBlock, passInfo.remark[:aes.BlockSize])
+	stream.XORKeyStream(plainRemark, passInfo.remark[aes.BlockSize:])
+
+	passInfo.password = plainPass
+	passInfo.remark = plainRemark
+
+	return
 }
 
 func connectDB() (db *sql.DB, err error) {
@@ -27,7 +88,7 @@ func insertPasswdColumn(passInfo PassInfo) (err error) {
 	return
 }
 
-func getPasswsColumn(label string) (passInfo PassInfo, err error) {
+func getPasswdColumn(label string) (passInfo PassInfo, err error) {
 	db, err := connectDB()
 	if err != nil {
 		return

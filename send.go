@@ -12,8 +12,11 @@ func send(conn net.Conn) {
 	labelLen, err := conn.Read(label)
 	checkError(err, "failed to read label.")
 
-	passInfo, err := getPasswsColumn(string(label[:labelLen]))
+	column, err := getPasswdColumn(string(label[:labelLen]))
 	checkError(err, "failed to get password.")
-	conn.Write(decrypter(passInfo.password, authPass))
-	conn.Write(decrypter(passInfo.remark, authPass))
+
+	column.decrypt(authPass)
+
+	conn.Write(column.password)
+	conn.Write(column.remark)
 }
