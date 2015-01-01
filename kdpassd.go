@@ -86,7 +86,7 @@ func checkError(err error, msg string) {
 	}
 }
 
-func readConf(url string) (config kdpassdConf, err error) {
+func readConf(url string) (err error) {
 	confFile, err := os.Open(url)
 	if err != nil {
 		return
@@ -125,44 +125,6 @@ func checkAuthPass(conn net.Conn) (AuthPass []byte, err error) {
 	return passwd[:passLen], err
 }
 
-func sendPasswd(conn net.Conn) {
-	authPass, err := checkAuthPass(conn)
-	checkError(err, "failed to check a authorized password.")
-
-	label := make([]byte, 1023)
-	labelLen, err := conn.Read(label)
-	checkError(err, "failed to read label.")
-
-	passInfo, err := getPasswsColumn(string(label[:labelLen]))
-	checkError(err, "failed to get password.")
-	conn.Write(decrypter(passInfo.password, authPass))
-	conn.Write(decrypter(passInfo.remark, authPass))
-}
-
-func registPasswd(conn net.Conn) {
-	authPass, err := checkAuthPass(conn)
-	checkError(err, "failed to check a authorized password.")
-
-	var column PassInfo
-	label := make([]byte, 255)
-	labelLen, err := conn.Read(label)
-	checkError(err, "failed to read label.")
-	column.label = string(label[:labelLen])
-
-	passwd := make([]byte, 255)
-	passLen, err := conn.Read(passwd)
-	checkError(err, "failed to read password.")
-	column.password = encrypter(passwd[:passLen], authPass)
-
-	remark := make([]byte, 1023)
-	remarkLen, err := conn.Read(remark)
-	checkError(err, "failed to read password.")
-	column.remark = encrypter(remark[:remarkLen], authPass)
-
-	err = insertPasswdColumn(column)
-	checkError(err, "failed to insert password into database.")
-}
-
 func handleClient(conn net.Conn) {
 	act := make([]byte, 1)
 	actLen, err := conn.Read(act)
@@ -170,15 +132,15 @@ func handleClient(conn net.Conn) {
 	actNum, _ := strconv.Atoi(string(act[:actLen]))
 	switch actNum {
 	case SHOW:
-		sendPasswd(conn)
+		send(conn)
 	case ADD:
-		registPasswd(conn)
+		regist(conn)
 	}
 }
 
 func main() {
-	config, _ = readConf("kdpassd.conf")
-	//checkError(err, "failed to read config file.")
+	err := readConf("kdpassd.conf")
+	checkError(err, "failed to read config file.")
 
 	listener, err := createTLSListener()
 	checkError(err, "could not create TLSListener.")
