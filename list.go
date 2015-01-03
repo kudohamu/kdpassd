@@ -6,7 +6,7 @@ import (
 )
 
 func list(conn net.Conn) {
-	_, err := checkAuthPass(conn)
+	_, err := askAuthPass(conn)
 	checkError(err, "failed to check a authorized password.")
 
 	labels, err := getLabels()

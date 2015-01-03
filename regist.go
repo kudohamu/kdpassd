@@ -5,7 +5,7 @@ import (
 )
 
 func regist(conn net.Conn) {
-	authPass, err := checkAuthPass(conn)
+	authPass, err := askAuthPass(conn)
 	checkError(err, "failed to check a authorized password.")
 
 	var column PassInfo

@@ -5,7 +5,7 @@ import (
 )
 
 func send(conn net.Conn) {
-	authPass, err := checkAuthPass(conn)
+	authPass, err := askAuthPass(conn)
 	checkError(err, "failed to check a authorized password.")
 
 	label := make([]byte, 1023)
