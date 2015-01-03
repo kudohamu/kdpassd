@@ -122,3 +122,14 @@ func getLabels() (labels []string, err error) {
 
 	return
 }
+
+func deletePasswdColumn(label string) (err error) {
+	db, err := connectDB()
+	if err != nil {
+		return
+	}
+	defer db.Close()
+
+	_, err = db.Exec("DELETE FROM passwd_info WHERE label = $1;", label)
+	return
+}

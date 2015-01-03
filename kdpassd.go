@@ -5,10 +5,12 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
-	//"github.com/codegangsta/cli"
+	"github.com/codegangsta/cli"
 	"net"
 	"os"
+	"os/exec"
 	"strconv"
 )
 
@@ -66,7 +68,7 @@ func createTLSListener() (listener net.Listener, err error) {
 	return
 }
 
-func checkAuthPass(conn net.Conn) (AuthPass []byte, err error) {
+func askAuthPass(conn net.Conn) (authPass []byte, err error) {
 	passwd := make([]byte, 255)
 	passLen, err := conn.Read(passwd)
 	if err != nil {
@@ -84,11 +86,35 @@ func checkAuthPass(conn net.Conn) (AuthPass []byte, err error) {
 	return passwd[:passLen], err
 }
 
+func checkAuthPass() (authPass []byte, err error) {
+
+	fmt.Printf("enter auth password: ")
+	cmd := exec.Command("stty", "-echo")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	cmd.Run()
+	_, err = fmt.Scanf("%s", &authPass)
+	fmt.Println()
+	if err != nil {
+		return
+	}
+	hash := sha512.New()
+	hash.Write(authPass)
+
+	if base64.URLEncoding.EncodeToString(hash.Sum(nil)) != config.AuthPass {
+		return []byte(""), errors.New("typed password is not correct.")
+	}
+
+	return
+}
+
 func handleClient(conn net.Conn) {
 	act := make([]byte, 1)
 	actLen, err := conn.Read(act)
 	checkError(err, "failed to read action.")
 	actNum, _ := strconv.Atoi(string(act[:actLen]))
+
 	switch actNum {
 	case SHOW:
 		send(conn)
@@ -103,17 +129,44 @@ func main() {
 	err := readConf("kdpassd.conf")
 	checkError(err, "failed to read config file.")
 
-	listener, err := createTLSListener()
-	checkError(err, "could not create TLSListener.")
+	app := cli.NewApp()
+	app.Name = "kdpassd"
 
-	fmt.Printf("run kdpassd. %d port listen.", config.Port)
+	app.Commands = []cli.Command{
+		{
+			Name:  "start",
+			Usage: "show specified label's password",
+			Action: func(c *cli.Context) {
+				listener, err := createTLSListener()
+				checkError(err, "could not create TLSListener.")
 
-	for {
-		conn, err := listener.Accept()
-		checkError(err, "failed accept connection.")
-		defer conn.Close()
+				fmt.Printf("run kdpassd. %d port listen.", config.Port)
 
-		fmt.Println("accept!")
-		go handleClient(conn)
+				for {
+					conn, err := listener.Accept()
+					checkError(err, "failed accept connection.")
+					defer conn.Close()
+
+					fmt.Println("accept!")
+					go handleClient(conn)
+				}
+			},
+		},
+		{
+			Name:  "delete",
+			Usage: "delete specified label's password",
+			Action: func(c *cli.Context) {
+				delete(c.Args().First())
+			},
+		},
+		{
+			Name:  "edit",
+			Usage: "delete specified label's password",
+			Action: func(c *cli.Context) {
+				fmt.Println("edit")
+			},
+		},
 	}
+
+	app.Run(os.Args)
 }
