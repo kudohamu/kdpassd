@@ -126,7 +126,7 @@ func handleClient(conn net.Conn) {
 }
 
 func main() {
-	err := readConf("kdpassd.conf")
+	err := readConf("kdpassd.json")
 	checkError(err, "failed to read config file.")
 
 	app := cli.NewApp()
