@@ -9,9 +9,11 @@ func list(conn net.Conn) {
 	_, err := askAuthPass(conn)
 	checkError(err, "failed to check a authorized password.")
 
-	labels, err := getLabels()
-	checkError(err, "failed to get labels list.")
+	if checkMFA(conn) {
+		labels, err := getLabels()
+		checkError(err, "failed to get labels list.")
 
-	conn.Write([]byte(strings.Join(labels, "\n")))
-	conn.Close()
+		conn.Write([]byte(strings.Join(labels, "\n")))
+		conn.Close()
+	}
 }

@@ -26,6 +26,7 @@ type kdpassdConf struct {
 	KeyUrl   string
 	AuthPass string
 	DB       DB
+	Mail     Mail
 }
 
 var config kdpassdConf
