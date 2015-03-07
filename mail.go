@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/smtp"
 	"strings"
+	"time"
 )
 
 //多要素認証用
@@ -91,7 +92,7 @@ func checkMFA(conn net.Conn) bool {
 
 	conn.Write([]byte("true"))
 
-	b := make([]byte, 32)
+	b := make([]byte, 8)
 	_, err := io.ReadFull(rand.Reader, b)
 
 	checkError(err, "")
@@ -99,11 +100,16 @@ func checkMFA(conn net.Conn) bool {
 	mfaCode := strings.TrimRight(base32.StdEncoding.EncodeToString(b), "=")
 	fmt.Println(mfaCode)
 
-	//sendSMTP(mfacode)
+	if len(config.Mail.Gmail.User) == 0 {
+		config.Mail.sendSMTP(mfaCode)
+	} else {
+		config.Mail.sendGMail(mfaCode)
+	}
 
+	conn.SetReadDeadline(time.Now().Add(3 * 60 * time.Second))
 	readCode := make([]byte, 32)
 	codeLen, err := conn.Read(readCode)
-	checkError(err, "failed to read mfa code.")
+	checkError(err, "failed to read mfa code or timeout.")
 
 	if mfaCode == string(readCode[:codeLen]) {
 		conn.Write([]byte("success"))
