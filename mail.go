@@ -2,14 +2,20 @@ package main
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/base32"
 	"fmt"
+	"io"
 	"log"
+	"net"
 	"net/smtp"
+	"strings"
 )
 
 //多要素認証用
 
 type Mail struct {
+	UseMFA     bool
 	From       string
 	To         string
 	MailServer MailServer //SMTPサーバ
@@ -61,18 +67,49 @@ func (mail *Mail) sendGMail(mfaCode string) {
 	auth := smtp.PlainAuth(
 		"",
 		mail.Gmail.User,
-		mail.Gamil.Pass,
+		mail.Gmail.Pass,
 		"smtp.gmail.com",
 	)
 
 	err := smtp.SendMail(
 		"smtp.gmail.com:587",
 		auth,
-		mail.Gamil.User,
+		mail.Gmail.User,
 		[]string{mail.To},
 		[]byte(mfaCode),
 	)
 	if err != nil {
 		log.Fatal(err)
+	}
+}
+
+func checkMFA(conn net.Conn) bool {
+	if !config.Mail.UseMFA {
+		conn.Write([]byte("false"))
+		return true
+	}
+
+	conn.Write([]byte("true"))
+
+	b := make([]byte, 32)
+	_, err := io.ReadFull(rand.Reader, b)
+
+	checkError(err, "")
+
+	mfaCode := strings.TrimRight(base32.StdEncoding.EncodeToString(b), "=")
+	fmt.Println(mfaCode)
+
+	//sendSMTP(mfacode)
+
+	readCode := make([]byte, 32)
+	codeLen, err := conn.Read(readCode)
+	checkError(err, "failed to read mfa code.")
+
+	if mfaCode == string(readCode[:codeLen]) {
+		conn.Write([]byte("success"))
+		return true
+	} else {
+		conn.Write([]byte("failed"))
+		return false
 	}
 }
